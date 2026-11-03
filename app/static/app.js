@@ -281,10 +281,14 @@ btnTranscribe.addEventListener("click", async () => {
   const apiKey = localStorage.getItem("groq_api_key") || "";
   const task = document.getElementById("opt-task").value;
   const language = document.getElementById("opt-language").value;
+  const isMusicMode = document.getElementById("opt-mode")?.value === "music";
 
   const formData = new FormData();
   formData.append("file", activeFile);
   formData.append("model", "whisper-large-v3-turbo");
+  formData.append("task", task);
+  formData.append("vad_filter", isMusicMode ? "false" : "true");
+  formData.append("condition_on_previous_text", isMusicMode ? "false" : "true");
   formData.append("response_format", "verbose_json");
   if (language) formData.append("language", language);
 

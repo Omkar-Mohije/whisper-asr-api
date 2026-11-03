@@ -101,12 +101,19 @@
       </div>
     </section>
 
-    <!-- Settings Bar (Language / Task) -->
+    <!-- Settings Bar (Mode / Task / Language) -->
     <section class="options-bar">
+      <div class="option-item">
+        <label for="opt-mode">Audio Mode:</label>
+        <select id="opt-mode">
+          <option value="speech" selected>🎙️ Speech &amp; Lectures (VAD On)</option>
+          <option value="music">🎵 Music &amp; Songs (VAD Off)</option>
+        </select>
+      </div>
       <div class="option-item">
         <label for="opt-task">Task:</label>
         <select id="opt-task">
-          <option value="transcribe" selected>Transcribe (Same Language)</option>
+          <option value="transcribe" selected>Transcribe</option>
           <option value="translate">Translate to English</option>
         </select>
       </div>

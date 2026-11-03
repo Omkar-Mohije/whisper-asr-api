@@ -149,6 +149,7 @@ class WhisperEngine:
         min_silence_duration_ms: Optional[int] = None,
         speech_pad_ms: Optional[int] = None,
         word_timestamps: bool = True,
+        condition_on_previous_text: bool = True,
         is_silent: bool = False,
     ) -> Dict[str, Any]:
         """
@@ -200,7 +201,7 @@ class WhisperEngine:
                         "speech_pad_ms": pad_ms,
                     },
                     word_timestamps=word_timestamps,
-                    condition_on_previous_text=True,
+                    condition_on_previous_text=condition_on_previous_text,
                 )
                 segments = self._consume_segments(segments_generator, word_timestamps)
             except Exception as infer_err:
@@ -218,7 +219,7 @@ class WhisperEngine:
                             "speech_pad_ms": pad_ms,
                         },
                         word_timestamps=word_timestamps,
-                        condition_on_previous_text=True,
+                        condition_on_previous_text=condition_on_previous_text,
                     )
                     segments = self._consume_segments(segments_generator, word_timestamps)
                 else:

@@ -119,6 +119,7 @@ async def transcribe_audio_endpoint(
     task: str = Form("transcribe", description="'transcribe' or 'translate' to English"),
     beam_size: Optional[int] = Form(None, ge=1, le=10, description="Beam search width"),
     vad_filter: bool = Form(True, description="Enable Voice Activity Detection silence filtering"),
+    condition_on_previous_text: bool = Form(True, description="Condition token generation on previous segment text"),
     min_silence_duration_ms: Optional[int] = Form(None, description="Minimum silence duration for VAD splits"),
     speech_pad_ms: Optional[int] = Form(None, description="Speech padding ms before and after chunks"),
     word_timestamps: bool = Form(True, description="Enable word-level timestamps")
@@ -144,6 +145,7 @@ async def transcribe_audio_endpoint(
             task=task,
             beam_size=beam_size,
             vad_filter=vad_filter,
+            condition_on_previous_text=condition_on_previous_text,
             min_silence_duration_ms=min_silence_duration_ms,
             speech_pad_ms=speech_pad_ms,
             word_timestamps=word_timestamps,
@@ -179,6 +181,7 @@ async def transcribe_and_export_endpoint(
     task: str = Form("transcribe"),
     beam_size: Optional[int] = Form(None),
     vad_filter: bool = Form(True),
+    condition_on_previous_text: bool = Form(True),
     word_timestamps: bool = Form(True)
 ):
     """Transcribes the uploaded media and returns the result directly as a downloadable formatted file."""
@@ -199,6 +202,7 @@ async def transcribe_and_export_endpoint(
             task=task,
             beam_size=beam_size,
             vad_filter=vad_filter,
+            condition_on_previous_text=condition_on_previous_text,
             word_timestamps=word_timestamps,
             is_silent=is_silent,
         )
