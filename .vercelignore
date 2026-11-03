@@ -1,7 +1,0 @@
-# Ignore Python ML dependencies for Vercel Serverless
-requirements.txt
-app/
-tests/
-Dockerfile
-docker-compose.yml
-*.ipynb

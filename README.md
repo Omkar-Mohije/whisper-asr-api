@@ -1,96 +1,145 @@
-# 🎙️ Whisper ASR
-
-**Every Indian has struggled to transcribe a lecture or official audio. Whisper ASR does it in seconds, in your language.**
-
-Whisper ASR is an intelligent voice-first speech recognition assistant that transcribes college lectures, government announcements, and voice notes into clean text, timestamped subtitles (**SRT**, **VTT**), and translated English notes.
-
-**Live demo:** [https://whisper-asr-api.vercel.app](https://whisper-asr-api.vercel.app)  
-*(Or tap the 1-click Colab button below for free GPU inference)*
+# 🎙️ Whisper ASR Pipeline & Web API
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Omkar-Mohije/whisper-asr-api/blob/main/whisper_colab_server.ipynb)
-[![FastAPI](https://img.shields.io/badge/API-FastAPI%20%2B%20GPU-009688.svg)](https://fastapi.tiangolo.com/)
-[![Whisper Model](https://img.shields.io/badge/ASR-Whisper%20Large--v3--Turbo-orange.svg)](https://github.com/openai/whisper)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/Framework-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
+[![faster-whisper](https://img.shields.io/badge/Model-Whisper%20Large--v3--Turbo-orange.svg)](https://github.com/SYSTRAN/faster-whisper)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
----
-
-## 📌 The Problem
-
-College lectures, seminar presentations, court notices, and official announcements across India are rarely in plain monolingual English. They heavily feature **code-switching (Hinglish)**, regional phrasing (Hindi, Marathi, etc.), noisy classroom acoustics, and fast-paced speech. 
-
-Standard speech-to-text models either fail on Hinglish code-switching or lose synchronization. Students and researchers end up spending hours manually scrubbing audio to transcribe lectures and generate study notes or video subtitles.
+An end-to-end **Automatic Speech Recognition (ASR)** system powered by **faster-whisper (Large-v3-Turbo)** and **FastAPI**, designed for high-accuracy multilingual transcription (English, Hindi, Hinglish), subtitle generation (SRT, VTT), and word-level alignment.
 
 ---
 
-## 💡 How It Works
+## 🔄 ASR Pipeline Architecture
 
-1. **Upload or Record**: Upload any audio/video file (WAV, MP3, M4A, FLAC, MP4) or record your voice live from the browser microphone. Or click any of the built-in sample recordings.
-2. **Recognize**: Uses **Whisper Large-v3-Turbo** (OpenAI / faster-whisper) with Voice Activity Detection (VAD) to filter silence, align token timestamps, and detect spoken languages automatically.
-3. **Interactive Sync**: An interactive audio player synchronizes subtitle cue cards in real time as the audio plays. Clicking any subtitle timestamp seeks the audio to that exact second.
-4. **Export**: One-click download of SubRip (**SRT** for VLC/YouTube), WebVTT (**VTT** for HTML5 players), plain text (**TXT**), and structured **JSON**.
-5. **Evaluate (WER / CER)**: Built-in benchmark tool comparing Whisper's hypothesis with verified ground-truth reference transcripts to calculate Word Error Rate and Character Error Rate.
-
----
-
-## 🚀 Live Vercel Deployment (1-Minute Setup)
-
-You can deploy your own live `https://<your-project>.vercel.app` link in 60 seconds:
-
-1. Go to **[vercel.com](https://vercel.com)** and sign in with your GitHub account.
-2. Click **"Add New..."** ➔ **"Project"**.
-3. Select this repository: `Omkar-Mohije/whisper-asr-api`.
-4. *(Optional)* In **Environment Variables**, add `GROQ_API_KEY` (Get a free key in 10s at [console.groq.com](https://console.groq.com)).
-5. Click **Deploy**! 
-
-Vercel will give you a public URL (e.g. `https://whisper-asr-api.vercel.app`) that works on phones, laptops, and classroom projectors!
-
----
-
-## 📁 Repository Structure
-
-```
-whisper-asr-api/
-├── index.html               # Main Web Studio interface (Vercel static root)
-├── styles.css               # Clean presentation-ready stylesheet
-├── app.js                   # Interactive player, sample library, subtitle generator
-├── vercel.json              # Vercel deployment and routing configuration
-├── api/
-│   └── transcribe.js        # Vercel serverless function (Whisper API forwarder)
-├── whisper_app_launcher.ipynb # 1-click Google Colab launcher
-├── Dockerfile               # Production container image with FFmpeg
-├── docker-compose.yml       # Docker compose orchestration
-├── requirements.txt         # Python dependencies
-├── app/                     # Python FastAPI Backend
-│   ├── main.py              # FastAPI server entrypoint
-│   ├── core/                # WhisperEngine, FFmpeg preprocessor, Exporters
-│   ├── schemas/             # Pydantic v2 data models
-│   └── api/v1/              # REST API endpoints (/transcribe, /evaluate, /health)
-└── tests/
-    └── test_api.py          # Automated test suite
+```text
+                  [ Audio / Video Input ]
+            (WAV, MP3, M4A, FLAC, OGG, WebM, MP4)
+                              │
+                              ▼
+        ┌──────────────────────────────────────────────┐
+        │ 1. Audio Decoding & Normalization (FFmpeg)   │
+        │    • Resample to 16,000 Hz                   │
+        │    • Downmix to 1-Channel Mono (float32)     │
+        │    • Dynamic Range & Energy Validation       │
+        └──────────────────────┬───────────────────────┘
+                               │
+                               ▼
+        ┌──────────────────────────────────────────────┐
+        │ 2. Voice Activity Detection (Silero VAD)     │
+        │    • Strip non-speech background noise       │
+        │    • Speech segmentation (min_silence=500ms) │
+        └──────────────────────┬───────────────────────┘
+                               │
+                               ▼
+        ┌──────────────────────────────────────────────┐
+        │ 3. Whisper Large-v3-Turbo (CTranslate2)      │
+        │    • FP16 GPU / INT8 CPU Inference           │
+        │    • Beam Search Decoding (beam_size=5)      │
+        │    • Auto Language Detection & Probabilities │
+        │    • Millisecond Word & Segment Timestamps   │
+        └──────────────────────┬───────────────────────┘
+                               │
+                               ▼
+        ┌──────────────────────────────────────────────┐
+        │ 4. Output Generation & Exporters             │
+        │    • Plain Text (.txt)                       │
+        │    • SubRip Subtitles (.srt)                 │
+        │    • WebVTT Subtitles (.vtt)                 │
+        │    • Full Structured JSON (.json)            │
+        │    • Accuracy Benchmarks: WER & CER (jiwer)  │
+        └──────────────────────┬───────────────────────┘
+                               │
+                               ▼
+        ┌──────────────────────────────────────────────┐
+        │ 5. Application & Delivery Layer              │
+        │    • Interactive Web Studio (Audio Player)   │
+        │    • Asynchronous FastAPI REST API (/docs)   │
+        │    • Cloud GPU Tunnel (Google Colab)         │
+        └──────────────────────────────────────────────┘
 ```
 
 ---
 
-## 💻 Local & Docker Execution (Optional)
+## ⚡ Quick Start
 
-If running the Python FastAPI server locally:
+### Option A: 1-Click Cloud GPU (Google Colab) — Recommended
+Run the complete pipeline on a free **NVIDIA T4 GPU (16 GB VRAM)** with an instant public URL via Cloudflare Tunnel (no account required):
 
+1. Click the **[Open in Colab](https://colab.research.google.com/github/Omkar-Mohije/whisper-asr-api/blob/main/whisper_colab_server.ipynb)** badge.
+2. Ensure GPU is enabled (**Runtime ➔ Change runtime type ➔ T4 GPU**).
+3. Click **Run All**. The notebook will output a clickable `https://xxxx.trycloudflare.com` URL to open the Web Studio and API.
+
+### Option B: Local Execution
 ```bash
-# 1. Install dependencies
+# 1. Clone repository
+git clone https://github.com/Omkar-Mohije/whisper-asr-api.git
+cd whisper-asr-api
+
+# 2. Install dependencies (requires FFmpeg installed)
 pip install --prefer-binary -r requirements.txt
 
-# 2. Run the application
+# 3. Start the FastAPI server
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
+- **Web Studio**: [http://localhost:8000](http://localhost:8000)
+- **Interactive Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-Or with Docker:
+### Option C: Docker
 ```bash
 docker compose up --build
 ```
 
 ---
 
-## 📜 Academic Attribution
+## 📡 REST API Reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/v1/health` | Hardware status, CUDA device, and active model |
+| `GET` | `/api/v1/models` | List supported Whisper model sizes |
+| `POST` | `/api/v1/transcribe` | Upload media & receive JSON transcript with word timestamps |
+| `POST` | `/api/v1/transcribe/export` | Transcribe and directly download `.srt`, `.vtt`, `.txt`, or `.zip` |
+| `POST` | `/api/v1/evaluate` | Calculate Word Error Rate (WER) & Character Error Rate (CER) |
+
+---
+
+## 📂 Repository Structure
+
+```
+whisper-asr-api/
+├── README.md                  # Project documentation & pipeline diagram
+├── requirements.txt           # Pinned dependencies
+├── Dockerfile                 # Production Docker image with FFmpeg
+├── docker-compose.yml         # Container orchestration
+├── whisper_colab_server.ipynb # 1-click Colab GPU server with Cloudflare tunnel
+├── .env.example               # Environment defaults
+├── .gitignore                 # Git ignore rules
+├── LICENSE                    # MIT License
+├── app/
+│   ├── main.py                # FastAPI entrypoint, static assets & CORS
+│   ├── config.py              # Settings & hardware auto-detection
+│   ├── api/v1/
+│   │   ├── router.py          # Route aggregator
+│   │   └── endpoints.py       # API endpoints (/transcribe, /evaluate, /health)
+│   ├── core/
+│   │   ├── asr_engine.py      # Thread-safe faster-whisper inference singleton
+│   │   ├── audio_utils.py     # FFmpeg decoding, resampling, silence detection
+│   │   ├── exporters.py       # SRT, VTT, TXT, JSON, and ZIP generators
+│   │   └── evaluation.py      # WER and CER calculation via jiwer
+│   ├── schemas/
+│   │   └── asr.py             # Pydantic v2 data models
+│   └── static/
+│       ├── index.html         # Responsive Web Studio UI
+│       ├── styles.css         # Clean presentation stylesheet
+│       └── app.js             # Synchronized cue player & sample library
+└── tests/
+    └── test_api.py            # Unit & exporter test suite
+```
+
+---
+
+## 🎓 Academic Attribution
 
 Developed at the **Indian Institute of Information Technology Allahabad (IIITA)** for the Multimedia Data Processing (MDP) Lab curriculum.  
-Built on OpenAI Whisper, faster-whisper, and Vercel. Distributed under the MIT License.
+Built on faster-whisper (CTranslate2) and FastAPI. Distributed under the MIT License.

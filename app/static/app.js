@@ -292,49 +292,68 @@ btnTranscribe.addEventListener("click", async () => {
 
   try {
     let response;
-    // Determine whether to call Vercel serverless /api/transcribe, local backend, or direct Groq
-    if (apiKey) {
-      // Direct call to Groq Whisper Large-v3-Turbo
-      response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${apiKey}` },
-        body: formData,
-      });
-    } else {
-      // Try local or Vercel serverless /api/transcribe
-      response = await fetch("/api/transcribe", {
+    // 1. Try local / Cloudflare FastAPI backend
+    try {
+      response = await fetch("/api/v1/transcribe", {
         method: "POST",
         body: formData,
       });
+    } catch (netErr) {
+      if (apiKey) {
+        response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${apiKey}` },
+          body: formData,
+        });
+      } else {
+        throw netErr;
+      }
     }
 
     if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error?.message || err.detail || "API transcription failed. Enter your free Groq API key in Settings (⚙️).");
+      // If FastAPI failed or was 404, fallback to Groq if key exists
+      if (apiKey) {
+        response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${apiKey}` },
+          body: formData,
+        });
+      }
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || err.detail || "Transcription failed.");
+      }
     }
 
     const data = await response.json();
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-    const dur = data.duration || 10.0;
 
-    // Normalize format
-    const segments = (data.segments || []).map((s, idx) => ({
-      id: idx,
-      start: s.start || 0.0,
-      end: s.end || 0.0,
-      text: s.text.trim()
-    }));
+    if (data.segments && data.metadata && data.transcript !== undefined) {
+      currentTranscriptData = {
+        transcript: data.transcript,
+        segments: data.segments,
+        metadata: data.metadata
+      };
+    } else {
+      const dur = data.duration || 10.0;
+      const segments = (data.segments || []).map((s, idx) => ({
+        id: idx,
+        start: s.start || 0.0,
+        end: s.end || 0.0,
+        text: s.text.trim()
+      }));
 
-    currentTranscriptData = {
-      transcript: data.text || "",
-      segments: segments,
-      metadata: {
-        duration: dur,
-        processing_seconds: elapsed,
-        rtf: (elapsed / dur).toFixed(3),
-        language: data.language ? data.language.toUpperCase() : "Detected"
-      }
-    };
+      currentTranscriptData = {
+        transcript: data.text || "",
+        segments: segments,
+        metadata: {
+          duration: dur,
+          processing_seconds: elapsed,
+          rtf: (elapsed / dur).toFixed(3),
+          language: data.language ? data.language.toUpperCase() : "Detected"
+        }
+      };
+    }
 
     renderResults(currentTranscriptData);
 
