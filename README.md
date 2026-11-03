@@ -1,5 +1,16 @@
+---
+title: Whisper ASR Studio
+emoji: 🎙️
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 8000
+pinned: false
+---
+
 # 🎙️ Whisper ASR Pipeline & Web API
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Omkar-Mohije/whisper-asr-api/blob/main/whisper_app_launcher.ipynb)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/Framework-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
 [![faster-whisper](https://img.shields.io/badge/ASR%20Engine-faster--whisper-orange.svg)](https://github.com/SYSTRAN/faster-whisper)
