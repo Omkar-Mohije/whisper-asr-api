@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whisper ASR — Voice to Text & Subtitles in Any Language</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <span class="brand-avatar">🎙️</span>
+        <div class="brand-text">
+          <span class="brand-title">Whisper ASR</span>
+          <span class="brand-subtitle">Voice-First Speech Recognition</span>
+        </div>
+      </div>
+      <div class="nav-actions">
+        <button id="btn-settings-toggle" class="btn-icon" title="API Settings">⚙️ Settings</button>
+        <a href="https://github.com/Omkar-Mohije/whisper-asr-api" target="_blank" class="btn-icon" title="View on GitHub">🐙 GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="main-content">
+
+    <!-- Hero Section (Modeled after Apna Babu style) -->
+    <section class="hero-section">
+      <h1 class="hero-title">Every Indian has struggled to transcribe a lecture or official audio.</h1>
+      <h2 class="hero-subtitle">Whisper ASR does it in seconds, in your language.</h2>
+      <p class="hero-desc">
+        English &bull; हिंदी &bull; मराठी &bull; Hinglish &mdash; Babu explains it, transcribes it, and generates timestamped subtitles in real time.
+      </p>
+    </section>
+
+    <!-- Upload Card -->
+    <section class="card upload-card">
+      <div class="dropzone" id="dropzone">
+        <div class="upload-icon">📄</div>
+        <h3 class="upload-heading">Upload an audio recording or voice note</h3>
+        <p class="upload-subtext">
+          Audio (MP3 / WAV / M4A / FLAC / OGG) or Video (MP4) &mdash; lecture, meeting, voice memo
+        </p>
+
+        <div class="action-buttons">
+          <button class="btn-action btn-upload" onclick="document.getElementById('file-input').click()">
+            📁 Choose File
+          </button>
+          <button class="btn-action btn-record" id="btn-record">
+            🔴 Record Voice
+          </button>
+        </div>
+        <input type="file" id="file-input" accept="audio/*,video/*" style="display: none;">
+      </div>
+
+      <!-- Live Recording Timer -->
+      <div id="recording-status" class="recording-bar hidden">
+        <span class="recording-dot"></span>
+        <span>Recording from microphone: </span>
+        <strong id="record-timer" style="font-family: monospace; font-size: 1.1rem; margin-left: 0.5rem;">00:00</strong>
+        <button id="btn-stop-record" class="btn-stop-pill">⏹️ Finish</button>
+      </div>
+
+      <!-- Selected File Notice -->
+      <div id="selected-file-info" class="selected-file hidden"></div>
+    </section>
+
+    <!-- Quick Sample Cards (Apna Babu inspiration) -->
+    <div class="divider-text">
+      <span>OR TRY A SAMPLE RECORDING</span>
+    </div>
+
+    <section class="samples-grid">
+      <div class="sample-card" onclick="loadSample('lecture')">
+        <div class="sample-icon">🏫</div>
+        <div class="sample-content">
+          <h4>College Lecture (Hinglish)</h4>
+          <p>Machine Learning & Data Processing discussion &bull; 25s</p>
+        </div>
+      </div>
+
+      <div class="sample-card" onclick="loadSample('announcement')">
+        <div class="sample-icon">📢</div>
+        <div class="sample-content">
+          <h4>Official Notice (Hindi)</h4>
+          <p>Academic registration and fee announcement &bull; 18s</p>
+        </div>
+      </div>
+
+      <div class="sample-card" onclick="loadSample('voicenote')">
+        <div class="sample-icon">💬</div>
+        <div class="sample-content">
+          <h4>Quick Voice Memo (English)</h4>
+          <p>Student project sprint update &bull; 14s</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings Bar (Language / Task) -->
+    <section class="options-bar">
+      <div class="option-item">
+        <label for="opt-task">Task:</label>
+        <select id="opt-task">
+          <option value="transcribe" selected>Transcribe (Same Language)</option>
+          <option value="translate">Translate to English</option>
+        </select>
+      </div>
+      <div class="option-item">
+        <label for="opt-language">Language:</label>
+        <select id="opt-language">
+          <option value="" selected>Auto-Detect</option>
+          <option value="hi">Hindi (हिंदी)</option>
+          <option value="en">English</option>
+          <option value="mr">Marathi (मराठी)</option>
+          <option value="es">Spanish</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- Transcribe Trigger Button -->
+    <button id="btn-transcribe" class="btn-primary-main" disabled>
+      <span id="transcribe-text">⚡ Transcribe with Whisper Large-v3-Turbo</span>
+      <div id="spinner" class="spinner hidden"></div>
+    </button>
+
+    <!-- Audio Player Preview -->
+    <section id="player-container" class="player-container hidden">
+      <label class="player-label">🎵 Audio Playback</label>
+      <audio id="audio-player" controls style="width: 100%;"></audio>
+    </section>
+
+    <!-- Output & Results Section -->
+    <section id="results-card" class="card results-card hidden">
+      <div class="results-header">
+        <h3 class="results-title">Recognized Transcript & Subtitles</h3>
+        <button class="btn-copy" onclick="copyTranscript()">📋 Copy Text</button>
+      </div>
+
+      <!-- Metrics Row -->
+      <div class="metrics-row">
+        <div class="metric-pill">
+          <span class="metric-name">Duration:</span>
+          <strong id="metric-duration">--</strong>
+        </div>
+        <div class="metric-pill">
+          <span class="metric-name">Latency:</span>
+          <strong id="metric-latency">--</strong>
+        </div>
+        <div class="metric-pill">
+          <span class="metric-name">Speed:</span>
+          <strong id="metric-rtf">--</strong>
+        </div>
+        <div class="metric-pill">
+          <span class="metric-name">Language:</span>
+          <strong id="metric-lang">--</strong>
+        </div>
+      </div>
+
+      <!-- Synchronized Subtitle Segments -->
+      <div id="segments-container" class="segments-container"></div>
+
+      <!-- Export Actions -->
+      <div class="export-actions">
+        <button class="btn-export" onclick="exportData('txt')">📄 Download TXT</button>
+        <button class="btn-export" onclick="exportData('srt')">🎬 Download SRT</button>
+        <button class="btn-export" onclick="exportData('vtt')">🌐 Download VTT</button>
+        <button class="btn-export" onclick="exportData('json')">📦 Download JSON</button>
+      </div>
+    </section>
+
+    <!-- WER/CER Evaluation Modal/Section -->
+    <section class="card eval-card">
+      <h3 class="eval-title">📊 Ground-Truth Evaluation (WER / CER)</h3>
+      <p class="eval-desc">Compare Whisper's output against a verified human reference transcript:</p>
+      <textarea id="ref-input" rows="2" placeholder="Paste verified reference text here..."></textarea>
+      <div class="eval-action-bar">
+        <button class="btn-eval" onclick="calculateWER()">Calculate WER & CER</button>
+        <div id="eval-result" class="eval-result-text"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Settings Modal for Custom API Key -->
+  <div id="modal-settings" class="modal hidden">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>⚙️ Whisper API Configuration</h3>
+        <button class="btn-close" onclick="closeSettings()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.9rem; color: #475569; margin-bottom: 1rem;">
+          To transcribe your own custom audio recordings via the Vercel cloud deployment, enter your free <strong>Groq API Key</strong> below:
+        </p>
+        <label for="api-key-input" style="font-weight: 600; font-size: 0.85rem; color: #1e293b;">Groq API Key:</label>
+        <input type="password" id="api-key-input" placeholder="gsk_..." style="width: 100%; margin-top: 0.35rem; padding: 0.6rem 0.8rem; border: 1px solid #cbd5e1; border-radius: 6px;">
+        <p style="font-size: 0.8rem; color: #64748b; margin-top: 0.5rem;">
+          💡 Don't have a key? Get one in 10 seconds for <strong>100% free</strong> at <a href="https://console.groq.com/keys" target="_blank" style="color: #2563eb;">console.groq.com</a> (no credit card required).
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-save-key" onclick="saveSettings()">Save & Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>Whisper ASR Studio &bull; Indian Institute of Information Technology Allahabad (IIITA)</p>
+    <p style="margin-top: 0.3rem; font-size: 0.8rem;">Powered by Whisper Large-v3-Turbo &amp; Vercel Serverless</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
