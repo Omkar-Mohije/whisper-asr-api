@@ -7,8 +7,8 @@ Whisper ASR is an intelligent voice-first speech recognition assistant that tran
 **Live demo:** [https://whisper-asr-api.vercel.app](https://whisper-asr-api.vercel.app)  
 *(Or tap the 1-click Colab button below for free GPU inference)*
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Omkar-Mohije/whisper-asr-api/blob/main/whisper_app_launcher.ipynb)
-[![FastAPI](https://img.shields.io/badge/API-FastAPI%20%2B%20Vercel-009688.svg)](https://fastapi.tiangolo.com/)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Omkar-Mohije/whisper-asr-api/blob/main/whisper_colab_server.ipynb)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI%20%2B%20GPU-009688.svg)](https://fastapi.tiangolo.com/)
 [![Whisper Model](https://img.shields.io/badge/ASR-Whisper%20Large--v3--Turbo-orange.svg)](https://github.com/openai/whisper)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
