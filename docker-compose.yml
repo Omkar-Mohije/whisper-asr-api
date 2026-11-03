@@ -1,0 +1,28 @@
+services:
+  whisper-api:
+    build: .
+    container_name: whisper-asr-api
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - WHISPER_MODEL_SIZE=large-v3-turbo
+      - WHISPER_DEVICE=auto
+      - WHISPER_COMPUTE_TYPE=auto
+      - DEFAULT_BEAM_SIZE=5
+      - DEFAULT_VAD_FILTER=true
+    volumes:
+      - whisper-cache:/root/.cache/huggingface
+    restart: unless-stopped
+    # If running with NVIDIA GPU on Linux, uncomment below:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  whisper-cache:

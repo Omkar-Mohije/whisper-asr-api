@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whisper ASR Studio & API</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
+</head>
+<body>
+
+<header>
+  <div class="header-container">
+    <div class="logo">
+      <span>🎙️</span> Whisper ASR Studio
+    </div>
+    <div style="display: flex; gap: 1rem; align-items: center;">
+      <a href="/docs" target="_blank" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">
+        ⚡ API Docs
+      </a>
+      <div class="status-badge" id="system-status">
+        <div class="status-dot"></div>
+        <span id="system-status-text">Connecting...</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="grid">
+    <!-- Left Column: Audio Source & Parameters -->
+    <div>
+      <div class="card">
+        <h2 class="card-title">1. Audio Source</h2>
+
+        <div class="tabs">
+          <button class="tab-btn active" id="tab-upload">Upload File</button>
+          <button class="tab-btn" id="tab-record">Record Microphone</button>
+        </div>
+
+        <div id="section-upload">
+          <div class="dropzone" id="dropzone">
+            <div class="dropzone-icon">📁</div>
+            <p><strong>Click to browse</strong> or drag & drop audio/video here</p>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem;">
+              Supports WAV, MP3, M4A, FLAC, OGG, MP4, MKV
+            </p>
+            <input type="file" id="file-input" accept="audio/*,video/*" style="display: none;">
+          </div>
+          <div id="file-chosen-name" style="margin-top: 0.6rem; font-size: 0.85rem; color: var(--accent); font-weight: 500;"></div>
+        </div>
+
+        <div id="section-record" class="hidden">
+          <div style="text-align: center; padding: 2rem 1rem;">
+            <button id="btn-record" class="btn-primary" style="width: auto; margin: 0 auto; padding: 0.75rem 1.5rem;">
+              🔴 Start Recording
+            </button>
+            <p id="record-timer" style="margin-top: 1rem; font-family: monospace; font-size: 1.25rem; color: var(--accent);" class="hidden">00:00</p>
+          </div>
+        </div>
+
+        <div class="audio-player-container hidden" id="audio-preview-box">
+          <label>Audio Playback Preview</label>
+          <audio id="audio-player" controls></audio>
+        </div>
+
+        <h2 class="card-title" style="margin-top: 1.5rem;">2. ASR Parameters</h2>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="select-model">Model Size</label>
+            <select id="select-model">
+              <option value="large-v3-turbo" selected>large-v3-turbo (Accurate & Fast)</option>
+              <option value="large-v3">large-v3</option>
+              <option value="medium">medium</option>
+              <option value="small">small</option>
+              <option value="base">base</option>
+              <option value="tiny">tiny (Ultra-light)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="select-lang">Language</label>
+            <select id="select-lang">
+              <option value="">Auto-Detect</option>
+              <option value="en">English (en)</option>
+              <option value="hi">Hindi (hi)</option>
+              <option value="es">Spanish (es)</option>
+              <option value="fr">French (fr)</option>
+              <option value="de">German (de)</option>
+              <option value="it">Italian (it)</option>
+              <option value="ja">Japanese (ja)</option>
+              <option value="zh">Chinese (zh)</option>
+              <option value="ar">Arabic (ar)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="select-task">Task</label>
+            <select id="select-task">
+              <option value="transcribe" selected>Transcribe</option>
+              <option value="translate">Translate to English</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="input-beam">Beam Size</label>
+            <select id="input-beam">
+              <option value="1">1 (Greedy / Fastest)</option>
+              <option value="5" selected>5 (Standard Beam)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="checkbox-row">
+          <label class="checkbox-label">
+            <input type="checkbox" id="chk-vad" checked> VAD Filter (Silence Removal)
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="chk-timestamps" checked> Word Timestamps
+          </label>
+        </div>
+
+        <button id="btn-transcribe" class="btn-primary" disabled>
+          <span id="transcribe-btn-text">Transcribe Audio</span>
+          <div id="transcribe-spinner" class="spinner hidden"></div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Column: Results & Exports -->
+    <div>
+      <div class="card">
+        <h2 class="card-title">3. Transcription Results</h2>
+
+        <div class="metrics-grid">
+          <div class="metric-box">
+            <div class="metric-val" id="metric-duration">--</div>
+            <div class="metric-lbl">Duration</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val" id="metric-latency">--</div>
+            <div class="metric-lbl">Process Time</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val" id="metric-rtf">--</div>
+            <div class="metric-lbl">RTF Speed</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val" id="metric-lang">--</div>
+            <div class="metric-lbl">Language</div>
+          </div>
+        </div>
+
+        <div class="transcript-viewer" id="transcript-display">
+          <p style="color: var(--text-muted); text-align: center; margin-top: 3rem;">
+            Upload or record audio on the left, then click <strong>Transcribe Audio</strong>.
+          </p>
+        </div>
+
+        <div class="export-bar hidden" id="export-section">
+          <button class="btn-export" onclick="downloadCurrent('txt')">📄 Download TXT</button>
+          <button class="btn-export" onclick="downloadCurrent('srt')">🎬 Download SRT</button>
+          <button class="btn-export" onclick="downloadCurrent('vtt')">🌐 Download VTT</button>
+          <button class="btn-export" onclick="downloadCurrent('json')">📦 Download JSON</button>
+        </div>
+      </div>
+
+      <!-- Optional WER/CER Evaluation Card -->
+      <div class="card" style="margin-top: 1.5rem;">
+        <h2 class="card-title">4. Ground-Truth Evaluation (WER / CER)</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+          Compare the recognized hypothesis with a human ground-truth transcript.
+        </p>
+        <textarea id="ref-text" rows="3" placeholder="Paste verified ground-truth reference text here..."></textarea>
+        <div style="display: flex; gap: 1rem; align-items: center; margin-top: 0.75rem;">
+          <button id="btn-eval" class="btn-export" style="background-color: var(--bg-tertiary);">
+            📊 Calculate WER & CER
+          </button>
+          <div id="eval-scores" style="font-size: 0.9rem; font-weight: 600; color: var(--accent);"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <p>Whisper ASR REST API & Web Application &bull; Built with FastAPI & faster-whisper (CTranslate2)</p>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

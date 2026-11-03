@@ -1,0 +1,64 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+ENV/
+env.bak/
+venv.bak/
+
+# Environment and Secrets
+.env
+!.env.example
+*.local
+
+# Hugging Face and Model checkpoints cache
+models/
+huggingface/
+.cache/
+
+# Audio outputs and temporary uploads
+asr_outputs/
+temp_uploads/
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.ogg
+*.zip
+
+# IDEs & OS files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
