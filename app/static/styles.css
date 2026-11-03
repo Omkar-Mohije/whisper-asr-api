@@ -448,6 +448,34 @@ select {
   font-size: 0.85rem;
 }
 
+/* Full Plain Text Transcript */
+.full-transcript-box {
+  margin-bottom: 1.25rem;
+}
+
+.section-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary-blue);
+  margin-bottom: 0.4rem;
+}
+
+.full-transcript-content {
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  font-size: 1rem;
+  line-height: 1.65;
+  color: #0f172a;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 240px;
+  overflow-y: auto;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
 /* Subtitle Segments Box */
 .segments-container {
   max-height: 280px;

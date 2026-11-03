@@ -375,6 +375,12 @@ function renderResults(data) {
   metricRtf.textContent = meta.rtf;
   metricLang.textContent = meta.language;
 
+  // Render Full Plain Text Transcript Directly
+  const fullTranscriptEl = document.getElementById("full-transcript-text");
+  if (fullTranscriptEl) {
+    fullTranscriptEl.textContent = data.transcript || "[No audible speech recognized]";
+  }
+
   let html = "";
   data.segments.forEach((seg, i) => {
     html += `
