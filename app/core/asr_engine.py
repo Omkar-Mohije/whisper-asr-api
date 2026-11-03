@@ -1,4 +1,7 @@
+import ctypes
+import glob
 import logging
+import os
 import threading
 import time
 from typing import Dict, Any, List, Optional, Tuple
@@ -8,6 +11,31 @@ import numpy as np
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+def _setup_cuda_libraries():
+    """Auto-detect and preload pip-installed NVIDIA CUDA/cuBLAS/cuDNN shared libraries on Linux/Colab."""
+    try:
+        import site
+        search_dirs = []
+        for p in site.getsitepackages():
+            search_dirs.extend(glob.glob(f"{p}/nvidia/*/lib"))
+
+        if search_dirs:
+            existing_ld = os.environ.get("LD_LIBRARY_PATH", "")
+            os.environ["LD_LIBRARY_PATH"] = ":".join(search_dirs) + (":" + existing_ld if existing_ld else "")
+
+            # Explicitly preload libcublas and dependencies using RTLD_GLOBAL
+            for d in search_dirs:
+                for so in ("libcublas.so.12", "libcublasLt.so.12", "libcudnn.so.9", "libcudnn.so.8"):
+                    so_path = os.path.join(d, so)
+                    if os.path.isfile(so_path):
+                        try:
+                            ctypes.CDLL(so_path, mode=ctypes.RTLD_GLOBAL)
+                        except Exception:
+                            pass
+    except Exception as e:
+        logger.debug("CUDA library auto-link check completed: %s", e)
 
 
 class WhisperEngine:
@@ -72,6 +100,7 @@ class WhisperEngine:
             return
 
         with self._lock:
+            _setup_cuda_libraries()
             from faster_whisper import WhisperModel
 
             logger.info(
@@ -88,12 +117,26 @@ class WhisperEngine:
             if target_device == "cpu" and settings.WHISPER_CPU_THREADS > 0:
                 kwargs["cpu_threads"] = settings.WHISPER_CPU_THREADS
 
-            self._model = WhisperModel(**kwargs)
-            self._current_model_size = target_model
-            self._current_device = target_device
-            self._current_compute_type = target_compute
+            try:
+                self._model = WhisperModel(**kwargs)
+                self._current_model_size = target_model
+                self._current_device = target_device
+                self._current_compute_type = target_compute
+            except Exception as e:
+                if target_device == "cuda":
+                    logger.warning("CUDA execution failed (%s). Falling back safely to CPU (int8)...", e)
+                    kwargs["device"] = "cpu"
+                    kwargs["compute_type"] = "int8"
+                    if settings.WHISPER_CPU_THREADS > 0:
+                        kwargs["cpu_threads"] = settings.WHISPER_CPU_THREADS
+                    self._model = WhisperModel(**kwargs)
+                    self._current_model_size = target_model
+                    self._current_device = "cpu"
+                    self._current_compute_type = "int8"
+                else:
+                    raise e
 
-            logger.info("Model loaded successfully in %.2f seconds.", time.time() - start_time)
+            logger.info("Model loaded successfully in %.2f seconds on %s.", time.time() - start_time, self._current_device)
 
     def transcribe(
         self,
@@ -145,52 +188,41 @@ class WhisperEngine:
         start_time = time.time()
 
         with self._infer_lock:
-            segments_generator, info = self._model.transcribe(
-                audio_array,
-                language=language if language else None,
-                task=task,
-                beam_size=beam,
-                vad_filter=vad,
-                vad_parameters={
-                    "min_silence_duration_ms": silence_ms,
-                    "speech_pad_ms": pad_ms,
-                },
-                word_timestamps=word_timestamps,
-                condition_on_previous_text=True,
-            )
-
-            segments: List[Dict[str, Any]] = []
-            for seg in segments_generator:
-                words: List[Dict[str, Any]] = []
-                if word_timestamps and getattr(seg, "words", None):
-                    for word in seg.words:
-                        # Defensive check: word timestamps can be None on punctuation or edge tokens
-                        w_start = float(word.start) if word.start is not None else None
-                        w_end = float(word.end) if word.end is not None else None
-                        w_prob = float(word.probability) if getattr(word, "probability", None) is not None else None
-                        words.append({
-                            "start": w_start,
-                            "end": w_end,
-                            "word": word.word,
-                            "probability": w_prob,
-                        })
-
-                seg_start = float(seg.start) if seg.start is not None else 0.0
-                seg_end = float(seg.end) if seg.end is not None else seg_start
-                seg_text = seg.text.strip() if seg.text else ""
-
-                avg_logprob = float(seg.avg_logprob) if getattr(seg, "avg_logprob", None) is not None else None
-                no_speech_prob = float(seg.no_speech_prob) if getattr(seg, "no_speech_prob", None) is not None else None
-
-                segments.append({
-                    "id": len(segments),
-                    "start": round(seg_start, 3),
-                    "end": round(seg_end, 3),
-                    "text": seg_text,
-                    "avg_logprob": avg_logprob,
-                    "no_speech_prob": no_speech_prob,
-                    "words": words,
-                })
+            try:
+                segments_generator, info = self._model.transcribe(
+                    audio_array,
+                    language=language if language else None,
+                    task=task,
+                    beam_size=beam,
+                    vad_filter=vad,
+                    vad_parameters={
+                        "min_silence_duration_ms": silence_ms,
+                        "speech_pad_ms": pad_ms,
+                    },
+                    word_timestamps=word_timestamps,
+                    condition_on_previous_text=True,
+                )
+                segments = self._consume_segments(segments_generator, word_timestamps)
+            except Exception as infer_err:
+                if self._current_device == "cuda":
+                    logger.warning("GPU transcription failed (%s). Retrying seamlessly on CPU...", infer_err)
+                    self.load_model(device="cpu", compute_type="int8")
+                    segments_generator, info = self._model.transcribe(
+                        audio_array,
+                        language=language if language else None,
+                        task=task,
+                        beam_size=beam,
+                        vad_filter=vad,
+                        vad_parameters={
+                            "min_silence_duration_ms": silence_ms,
+                            "speech_pad_ms": pad_ms,
+                        },
+                        word_timestamps=word_timestamps,
+                        condition_on_previous_text=True,
+                    )
+                    segments = self._consume_segments(segments_generator, word_timestamps)
+                else:
+                    raise infer_err
 
         elapsed = time.time() - start_time
         rtf = round(elapsed / duration, 4) if duration > 0 else 0.0
@@ -212,6 +244,40 @@ class WhisperEngine:
             "transcript": full_transcript,
             "segments": segments,
         }
+
+    def _consume_segments(self, segments_generator, word_timestamps: bool) -> List[Dict[str, Any]]:
+        segments: List[Dict[str, Any]] = []
+        for seg in segments_generator:
+            words: List[Dict[str, Any]] = []
+            if word_timestamps and getattr(seg, "words", None):
+                for word in seg.words:
+                    w_start = float(word.start) if word.start is not None else None
+                    w_end = float(word.end) if word.end is not None else None
+                    w_prob = float(word.probability) if getattr(word, "probability", None) is not None else None
+                    words.append({
+                        "start": w_start,
+                        "end": w_end,
+                        "word": word.word,
+                        "probability": w_prob,
+                    })
+
+            seg_start = float(seg.start) if seg.start is not None else 0.0
+            seg_end = float(seg.end) if seg.end is not None else seg_start
+            seg_text = seg.text.strip() if seg.text else ""
+
+            avg_logprob = float(seg.avg_logprob) if getattr(seg, "avg_logprob", None) is not None else None
+            no_speech_prob = float(seg.no_speech_prob) if getattr(seg, "no_speech_prob", None) is not None else None
+
+            segments.append({
+                "id": len(segments),
+                "start": round(seg_start, 3),
+                "end": round(seg_end, 3),
+                "text": seg_text,
+                "avg_logprob": avg_logprob,
+                "no_speech_prob": no_speech_prob,
+                "words": words,
+            })
+        return segments
 
 
 _engine = WhisperEngine()
